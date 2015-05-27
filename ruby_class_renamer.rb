@@ -8,6 +8,10 @@ require 'yaml'
 
 plan = YAML.load_file(ARGV[0])
 
+if plan.is_a? Hash
+  plan = plan.map {|k, v| {"from" => k, "to" => v}}
+end
+
 cr = ClassRenamer.new(logger: Logger.new(STDOUT))
 
 const_mapping = {}
@@ -15,10 +19,12 @@ const_mapping = {}
 plan.each do |p|
   from_path = p["from"]
   to_path = p["to"]
-  from_class = cr.get_class(from_path)
-  to_class = cr.get_class(to_path)
+  next if to_path.nil? || from_path == to_path
+  from_class = p["from_class"] || cr.get_class(from_path)
+  to_class = p["to_class"] || cr.get_class(to_path)
   # git mv files
   cr.git_mv from_path, to_path
+  next if from_class == to_class
   # rename/unwrap constants in each renamed file
   cr.update_file to_path do |content|
     ClassFixer.new(content).rename_classes(from_class, to_class).content
@@ -27,7 +33,7 @@ plan.each do |p|
 end
 
 # rename constants in every other files
-files = `git ls-files '*.rb'`.split(?\n)
+files = `git ls-files '*.rb' '*.rake'`.split(?\n)
 files.each do |file|
   cr.rename_constants file, const_mapping
 end

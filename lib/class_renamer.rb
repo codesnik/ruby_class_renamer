@@ -7,11 +7,12 @@ class ClassRenamer
   end
 
   def get_class(path)
-    klass = path.sub(%r[^app/[^/]+/], '').sub(/\.rb$/, '')
+    klass = path.sub(%r[^(app|test)/[^/]+/], '').sub(/\.rb$/, '')
     klass = ActiveSupport::Inflector.camelize(klass)
   end
 
   def git_mv from, to
+    return if from == to
     to_dir = File.dirname(to)
     FileUtils.mkdir_p(to_dir)
     system 'git', 'mv', from, to
@@ -28,11 +29,12 @@ class ClassRenamer
 
 
   def rename_constants(filename, mapping=[])
-    update_file(filename) do
-      |content|
-      mapping.each do
-        |from, to|
-        content.gsub! from, to
+    update_file(filename) do |content|
+      mapping.each do |from, to|
+        # prevent false matching, like Foo and FooTest
+        # still try not prevent matching on ::Foo
+        from_regex = /(?<!\w::)\b#{from}\b/
+        content.gsub! from_regex, to
       end
       content
     end
