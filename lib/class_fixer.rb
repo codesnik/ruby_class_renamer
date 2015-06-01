@@ -2,16 +2,20 @@ class ClassFixer
 
   def initialize(content)
     @content = content.dup
+    @indent_level = 0
   end
 
   attr_reader :content
+  attr_reader :indent_level
 
   def indent
+    @indent_level += 1
     content.gsub! /^(?!\s*$)/, '  '
     self
   end
 
   def outdent
+    @indent_level -= 1
     content.gsub! /^  /, ''
     self
   end

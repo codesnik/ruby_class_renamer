@@ -15,6 +15,7 @@ end
 cr = ClassRenamer.new(logger: Logger.new(STDOUT))
 
 const_mapping = {}
+indents = {}
 
 plan.each do |p|
   from_path = p["from"]
@@ -27,7 +28,10 @@ plan.each do |p|
   next if from_class == to_class
   # rename/unwrap constants in each renamed file
   cr.update_file to_path do |content|
-    ClassFixer.new(content).rename_classes(from_class, to_class).content
+    cf = ClassFixer.new(content)
+    cf.rename_classes(from_class, to_class)
+    indents[to_path] = cf.indent_level
+    cf.content
   end
   const_mapping[from_class] = to_class
 end
@@ -37,3 +41,24 @@ files = `git ls-files '*.rb' '*.rake'`.split(?\n)
 files.each do |file|
   cr.rename_constants file, const_mapping
 end
+
+`git add -u`
+# return indents as they were (almost), git add result, then return content back
+# then you can git commit "renaming", git commit -am "fix indent"
+indents.each do |path, indent_level|
+  next if indent_level == 0
+  prev_content = nil
+  cr.update_file path do |content|
+    prev_content = content
+    cf = ClassFixer.new(content)
+    if indent_level > 0
+      indent_level.times { cf.outdent }
+    else
+      (-indent_level).times { cf.indent }
+    end
+    cf.content
+  end
+  `git add #{path}`
+  File.write(path, prev_content)
+end
+
