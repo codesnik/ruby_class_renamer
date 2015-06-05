@@ -1,12 +1,18 @@
 class ClassFixer
 
-  def initialize(content)
+  def initialize(content, reindent: true, flat_from: false, flat_to: false)
     @content = content.dup
     @indent_level = 0
+    @reindent = reindent
+    @flat_from = flat_from
+    @flat_to = flat_to
   end
 
   attr_reader :content
   attr_reader :indent_level
+  attr_reader :reindent
+  attr_reader :flat_from
+  attr_reader :flat_to
 
   def indent
     @indent_level += 1
@@ -21,7 +27,7 @@ class ClassFixer
   end
 
   def wrap_in_module(module_name)
-    indent
+    indent if reindent
     @content = "module #{module_name}\n" + @content + "end\n"
     self
   end
@@ -31,13 +37,13 @@ class ClassFixer
     content.sub! /^\s*(class|module).*?\n/, ''
     # remove last end
     content.sub! /\n+end\n*\z/m, "\n"
-    outdent
+    outdent if reindent
     self
   end
 
   def rename_classes(from, to)
-    from_parts = from.split('::')
-    to_parts = to.split('::')
+    from_parts = flat_from ? [from] : from.split('::')
+    to_parts = flat_to ? [to] : to.split('::')
     common_size = [from_parts.size, to_parts.size].min
 
     rename_parts = from_parts[-common_size..-1].zip(to_parts[-common_size..-1])
